@@ -2,40 +2,28 @@
 OUTDIR="$HOME/Projects/moss/frames"
 mkdir -p "$OUTDIR"
 
-echo 1 | sudo tee /sys/module/imx296/parameters/trigger_mode >/dev/null # Make sure camera is external tirgger mode
+echo 1 | sudo tee /sys/module/imx296/parameters/trigger_mode >/dev/null # Disable hardware trigger mode
 
-EXPOSURES=(100 500 2000) # Exposure times in microseconds
-GAIN=1
+EXPOSURES=(100 200 300 400 500 600 700 800 900 1000) # Exposure times in microseconds
+GAIN=5
 
 time_array_size=${#EXPOSURES[@]}
-trigger_count=0 # Total number of captures taken
 current_time=0 # Index into EXPOSURES array
 
-# Capture loop: cycles through exposure times, taking F and B captures for each
+# Capture loop: cycles through exposure times
 while [ "$current_time" -lt "$time_array_size" ]; do
     exp_us=${EXPOSURES[$current_time]}
 
-    # Alternate between Forward (F) and Backward (B) passes
-    if [ $((trigger_count % 2)) -eq 0 ]; then
-        DIR="F"  
-    else
-        DIR="B"
-    fi
+    filename="$OUTDIR/T_${exp_us}_G_${GAIN}.jpg"
+    rpicam-still --immediate -n --shutter "$exp_us" --gain "$GAIN" --awb auto -o "$filename"
+    echo "Captured frame: $filename"
 
-    filename="$OUTDIR/T:${exp_us}_G:${GAIN}_${DIR}.jpg" # File name
-
-    # the one shutter time is just a place holder
-    rpicam-still --immediate -n --shutter 1 --gain "$GAIN" -o "$filename"
-
-    trigger_count=$((trigger_count + 1))
-
-    # After both F and B captures (every 2nd trigger), move to next exposure time
-    if [ $((trigger_count % 2)) -eq 0 ]; then
-        current_time_index=$((current_time_index + 1))
-    fi
+    current_time=$((current_time + 1))
 done
 
-echo "Capture sequence completed: $trigger_count frames captured."
+echo "Capture sequence completed: $current_time frames captured."
 
 # chmod +x cap.sh
 # ./cap.sh
+
+# scp -r danie@raspberrypi.local:~/Projects/moss/frames "C:\Users\danie\OneDrive\Desktop\Camera Output\frames"
